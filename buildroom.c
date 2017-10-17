@@ -34,8 +34,8 @@ struct Room* Rooms[USABLE_ROOMS] = { &A, &B, &C, &D, &E, &F, &G };
 void randomizeRoomNames()
 {
 	int roomSelection = rand() % TOTAL_ROOMS;
-
-	for (int i = 0; i < USABLE_ROOMS; i++)
+	int i;
+	for (i = 0; i < USABLE_ROOMS; i++)
 	{
 		while (roomNameAssigned[roomSelection] == 1)
 		{
@@ -51,8 +51,9 @@ void randomizeRoomNames()
 void randomizeRoomTypes()
 {
 	int roomSelection = rand() % USABLE_ROOMS;
-
-	for (int i = 0; i < USABLE_ROOMS; i++)
+	int i;
+	
+	for (i = 0; i < USABLE_ROOMS; i++)
 	{
 		while (roomTypeAssigned[roomSelection] == 1)
 		{
@@ -79,13 +80,13 @@ void randomizeRoomTypes()
 
 void initializeRooms()
 {
-	for (int i = 0; i < USABLE_ROOMS; i++)
+	int i,j;
+	
+	for (i = 0; i < USABLE_ROOMS; i++)
 	{
 		Rooms[i]->connectionCount = 0;
-		strcpy(Rooms[i]->name, "");
-		strcpy(Rooms[i]->type, "");		
 
-		for (int j = 0; j < MAX_CONNECTIONS; j++)
+		for (j = 0; j < MAX_CONNECTIONS; j++)
 		{
 			Rooms[i]->connections[j] = NULL;
 		}
@@ -97,8 +98,9 @@ void initializeRooms()
 bool IsGraphFull()
 {
 	bool correctConnections = true;
-
-	for (int i = 0; i < USABLE_ROOMS; i++)
+	int i;
+	
+	for (i = 0; i < USABLE_ROOMS; i++)
 	{
 		if (Rooms[i]->connectionCount < 3 || Rooms[i]->connectionCount > 6)
 		{
@@ -123,10 +125,12 @@ bool CanAddConnectionFrom(struct Room* x)
 }
 
 //Connects Rooms x and y together, does not check if this connection is valid
-void ConnectRoom(struct Room* x)
+void ConnectRoom(struct Room* x, struct Room* y)
 {
 	bool firstFound = false;
-	for (int i = 0; i < MAX_CONNECTIONS; i++)
+	int i;
+	
+	for (i = 0; i < MAX_CONNECTIONS; i++)
 	{
 		if (firstFound == false && x->connections[i] == NULL)
 		{
@@ -157,6 +161,24 @@ bool IsSameRoom(struct Room* x, struct Room* y)
 	}
 }
 
+bool ConnectionAlreadyExists(struct Room* x, struct Room* y)
+{
+	int i;
+	bool connectionExists = false;
+	
+	for (i = 0; i < x->connectionCount; i++)
+	{
+		if (x->connections[i] != NULL)
+		{
+			if (strcmp(x->connections[i]->name, y->name) == 0)
+			{
+				connectionExists = true;
+			}
+		}
+	}
+	return connectionExists;
+}
+
 void AddRandomConnection()
 {
 	struct Room* A;  //Maybe a struct, maybe global arrays of ints
@@ -164,39 +186,44 @@ void AddRandomConnection()
 
 	while (1)
 	{
-		A = GetRandomRoom(Rooms);
+		A = GetRandomRoom();
 
-		if (CanAddConnectionFrom(A) == 1)
+		if (CanAddConnectionFrom(A) == true)
 			break;
 	}
 
 	do
 	{
-		B = GetRandomRoom(Rooms);
-	} while (CanAddConnectionFrom(B) == 0 || IsSameRoom(A, B) == 1);
+		B = GetRandomRoom();
+	} while (CanAddConnectionFrom(B) == false || IsSameRoom(A, B) == true || ConnectionAlreadyExists(A, B) == true);
 
 	ConnectRoom(A, B);
 	ConnectRoom(B, A);
 }
 
+
 void main()
 {
 	srand((unsigned int)time(NULL));
+	initializeRooms();	
 	randomizeRoomNames();
 	randomizeRoomTypes();
-
-	for (int i = 0; i < USABLE_ROOMS; i++)
+	
+	int i;
+	for (i = 0; i < USABLE_ROOMS; i++)
 	{
 		printf("%s: %s\n", Rooms[i]->name, Rooms[i]->type);
 	}
 
-	/*initializeRooms(Rooms);	
-
 	// Create all connections in graph
-	while (IsGraphFull(Rooms) == false)
+	while (IsGraphFull() == false)
 	{
-	AddRandomConnection(Rooms);
-	}*/
-
-	system("pause");
+	AddRandomConnection();
+	}
+	
+	int j;
+	for (j = 0; j < USABLE_ROOMS; j++)
+	{
+		printf("%d\n", Rooms[j]->connectionCount);
+	}
 }
