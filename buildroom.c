@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 typedef enum { false, true } bool;
 #define MAX_CONNECTIONS		6
@@ -11,7 +14,7 @@ typedef enum { false, true } bool;
 #define ROOM_TYPE_COUNT		3
 
 struct Room {
-	char name[10];
+	char name[15];
 	int connectionCount;	
 	char type[11];
 	struct Room* connections[MAX_CONNECTIONS];	
@@ -29,6 +32,7 @@ struct Room E;
 struct Room F;
 struct Room G;
 struct Room* Rooms[USABLE_ROOMS] = { &A, &B, &C, &D, &E, &F, &G };
+char directoryName[50] = "bryerl.rooms.";
 
 //Randomly assigns room names to rooms
 void randomizeRoomNames()
@@ -77,6 +81,19 @@ void randomizeRoomTypes()
 		}
 	}
 }
+
+void createDirectory()
+{
+    char pidString[10];
+    pid_t pid = getpid();
+    strcpy(directoryName, "./bryerl.rooms.");
+    sprintf(pidString, "%d", pid);
+    strcat(directoryName, pidString);
+    int result = mkdir(directoryName, 0700);
+}
+
+
+
 
 void initializeRooms()
 {
@@ -201,6 +218,31 @@ void AddRandomConnection()
 	ConnectRoom(B, A);
 }
 
+void WriteFiles()
+{
+    int i,j;
+    char filePath[50];
+    char textOutput[100];
+    FILE* writeFile;
+    for (i = 0; i < USABLE_ROOMS; i++)
+    {
+        strcpy(filePath, directoryName);
+        strcat(filePath, "/");
+        strcat(filePath, Rooms[i]->name);
+        writeFile = fopen(directoryName, "w");
+       
+        fprintf(writeFile, "ROOM NAME: %s\n", Rooms[i]->name);
+
+        for (j = 0; j < Rooms[i]->connectionCount; j++)
+        {
+            fprintf(writeFile, "CONNECTION %d: %s", j+1, Rooms[i]->connections[j]->name);
+        }
+
+        fprintf(writeFile, "ROOM TYPE: %s\n", Rooms[i]->type);
+    }
+    fclose(writeFile);
+}
+
 
 void main()
 {
@@ -208,7 +250,8 @@ void main()
 	initializeRooms();	
 	randomizeRoomNames();
 	randomizeRoomTypes();
-	
+    createDirectory();
+    WriteFiles();
 	int i;
 	for (i = 0; i < USABLE_ROOMS; i++)
 	{
