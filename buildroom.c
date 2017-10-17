@@ -220,7 +220,8 @@ void AddRandomConnection()
 
 void WriteFiles()
 {
-    int i,j;
+    int i;
+    int j = 0;
     char filePath[50];
     char textOutput[100];
     FILE* writeFile;
@@ -229,15 +230,15 @@ void WriteFiles()
         strcpy(filePath, directoryName);
         strcat(filePath, "/");
         strcat(filePath, Rooms[i]->name);
-        writeFile = fopen(directoryName, "w");
+        writeFile = fopen(filePath, "w");
        
         fprintf(writeFile, "ROOM NAME: %s\n", Rooms[i]->name);
-
-        for (j = 0; j < Rooms[i]->connectionCount; j++)
+        while (Rooms[i]->connections[j] != NULL)
         {
-            fprintf(writeFile, "CONNECTION %d: %s", j+1, Rooms[i]->connections[j]->name);
+            fprintf(writeFile, "CONNECTION %d: %s\n", j+1, Rooms[i]->connections[j]->name);
+            j++;
         }
-
+        j = 0;
         fprintf(writeFile, "ROOM TYPE: %s\n", Rooms[i]->type);
     }
     fclose(writeFile);
@@ -251,22 +252,11 @@ void main()
 	randomizeRoomNames();
 	randomizeRoomTypes();
     createDirectory();
-    WriteFiles();
-	int i;
-	for (i = 0; i < USABLE_ROOMS; i++)
-	{
-		printf("%s: %s\n", Rooms[i]->name, Rooms[i]->type);
-	}
 
 	// Create all connections in graph
 	while (IsGraphFull() == false)
 	{
 	AddRandomConnection();
 	}
-	
-	int j;
-	for (j = 0; j < USABLE_ROOMS; j++)
-	{
-		printf("%d\n", Rooms[j]->connectionCount);
-	}
+    WriteFiles();	
 }
