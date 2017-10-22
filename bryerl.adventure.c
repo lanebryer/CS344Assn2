@@ -273,4 +273,5 @@ void main()
 	CreateConnections();
 	(void) pthread_create(&mainThread, NULL, RunGame, NULL);
 	(void) pthread_join(mainThread, NULL);
+	exit(0);
 }
