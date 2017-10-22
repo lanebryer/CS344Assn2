@@ -165,7 +165,7 @@ void* GetTime()
 	time(&rawTime);
 	tm = localtime(&rawTime);
 	
-	strftime(currentTime, 100, "%I:%M%p, %A, %B %d, %G", tm);
+	strftime(currentTime, 100, "%I:%M%P, %A, %B %d, %G", tm);
 	fprintf(filePtr, "%s", currentTime);
 	fclose(filePtr);
 	pthread_mutex_unlock(&myMutex);
