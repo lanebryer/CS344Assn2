@@ -4,6 +4,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <stdlib.h>
+#include <time.h>
+#include <pthread.h>
 
 #define USABLE_ROOMS		7
 #define MAX_CONNECTIONS		6
@@ -24,6 +27,7 @@ struct Room F;
 struct Room G;
 struct Room* Rooms[USABLE_ROOMS] = { &A, &B, &C, &D, &E, &F, &G };
 char mostRecentDirectory[50];
+
 
 void FindRecentDirectory()
 {
@@ -80,13 +84,175 @@ void NameRooms()
 	}
 }
 
-void main()
+void CreateConnections()
 {
-	FindRecentDirectory();
-	NameRooms();
+	int i = 0;
+	DIR *directory;
+	struct dirent *dir;
+	struct stat stBuf;
+	char currentFileName[50];
+	FILE* file;
+	int bufferSize = 256;
+	char readLine[bufferSize];
+	struct Room* roomPointer;
+	directory = opendir(mostRecentDirectory);
+	struct Room* connectedRoom;
+	
+	if (directory)
+	{
+		while ((dir = readdir(directory)) != NULL)
+		{
+			stat(dir->d_name, &stBuf);
+			if (!strstr(dir->d_name, "."))
+			{
+				for (i = 0; i < USABLE_ROOMS; i++)
+				{
+					if (strcmp(dir->d_name, Rooms[i]->name) == 0)
+					{
+						roomPointer = Rooms[i];
+					}
+				}
+				
+				sprintf(currentFileName, "%s%s", mostRecentDirectory, dir->d_name);
+				file = fopen(currentFileName, "r");
+				
+				while ((fgets(readLine, bufferSize, file)) != 0)
+				{
+					readLine[strcspn(readLine, "\n")] = 0;
+					
+					if (strstr(readLine, "CONNECTION"))
+					{
+							strcpy(readLine, readLine+14);
+							
+							for (i = 0; i < USABLE_ROOMS; i++)
+							{
+								if (strcmp(Rooms[i]->name, readLine) == 0)
+								{
+									connectedRoom = Rooms[i];
+								}
+							}
+							roomPointer->connections[roomPointer->connectionCount] = connectedRoom;
+							roomPointer->connectionCount++;
+					}
+					else if (strcmp(readLine, "TYPE"))
+					{
+						strcpy(readLine, readLine+11);
+						strcpy(roomPointer->type, readLine);
+					}
+				}
+			}
+		}
+		closedir(directory);
+	}
+}
+
+void* GetTime()
+{
+	FILE* filePtr;
+	char currentTime[100];
+	filePtr = fopen("currentTime.txt", "w");
+	time_t rawTime;
+	struct tm *tm;
+	
+	time(&rawTime);
+	tm = localtime(&rawTime);
+	
+	strftime(currentTime, 100, "%I:%M%p, %A, %B %d, %G", tm);
+	fprintf(filePtr, "%s", currentTime);
+	fclose(filePtr);
+}
+
+void* RunGame()
+{
+	struct Room* currentRoom;
+	char connectionString[100];
+	char userEntry[100];
 	int i;
+	int steps = 0;
+	int found = 0;
+	struct Room** roomsVisited = malloc(sizeof(struct Room*));
+	FILE* timeFile;
+	char timeData[100];
+
 	for (i = 0; i < USABLE_ROOMS; i++)
 	{
-		printf("%s\n", Rooms[i]->name);
+		if (strcmp(Rooms[i]->type, "START_ROOM") == 0)
+		{
+			currentRoom = Rooms[i];
+			break;
+		}
 	}
+	
+	while (strcmp(currentRoom->type, "END_ROOM") != 0)
+	{
+		found = 0;
+		printf("CURRENT ROOM: %s\n", currentRoom->name);
+		strcpy(connectionString, "POSSIBLE CONNECTIONS: ");
+		for (i = 0; i < currentRoom->connectionCount; i++)
+		{
+			strcat(connectionString, currentRoom->connections[i]->name);
+			if (i == currentRoom->connectionCount - 1)
+			{
+				strcat(connectionString, ".");
+			}
+			else
+			{
+				strcat(connectionString, ", ");
+			}
+		}
+		
+		printf("%s\n", connectionString);
+		printf("WHERE TO? >");
+		fgets(userEntry, 100, stdin);
+		userEntry[strcspn(userEntry, "\n")] = 0;
+		printf("\n");
+		
+		if(strcmp(userEntry, "time") == 0)
+		{
+			GetTime();
+			timeFile = fopen("currentTime.txt", "r");
+			fgets(timeData, 100, timeFile);
+			printf("%s\n\n", timeData);
+		}
+		else
+		{
+		for (i = 0; i < currentRoom->connectionCount; i++)
+		{
+			if (strcmp(userEntry, currentRoom->connections[i]->name) == 0)
+			{
+				steps++;
+				roomsVisited = realloc(roomsVisited, steps * sizeof(struct Room *));
+				currentRoom = currentRoom->connections[i];
+				roomsVisited[steps-1] = currentRoom;
+				found = 1;
+				break;
+			}
+		}
+		
+		if (found == 0)
+		{
+			printf("HUH? I DON'T UNDERSTAND THAT ROOM, TRY AGAIN.\n\n");
+		}
+		}
+	}
+	
+	printf("YOU HAVE FOUND THE END ROOM. CONGRATULATIONS!\nYOU TOOK %d STEPS. YOUR PATH TO VICTORY WAS:\n", steps);
+	for (i = 0; i < steps; i++)
+	{
+		printf("%s\n", roomsVisited[i]->name);
+	}
+	
+	free(roomsVisited);
+}
+
+void main()
+{
+	pthread_t mainThread;
+	pthread_t timeThread;
+	pthread_mutex_t myMutex = PTHREAD_MUTEX_INITIALIZER;
+	int result_int;
+	FindRecentDirectory();
+	NameRooms();
+	CreateConnections();
+	result_int = pthread_create(&mainThread, NULL, RunGame, NULL);
 }
