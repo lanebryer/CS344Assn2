@@ -1,0 +1,271 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
+typedef enum { false, true } bool;
+#define MAX_CONNECTIONS		6
+#define MIN_CONNECTIONS		3
+#define TOTAL_ROOMS			10
+#define USABLE_ROOMS		7
+#define ROOM_TYPE_COUNT		3
+
+struct Room {
+	char name[15];
+	int connectionCount;	
+	char type[11];
+	struct Room* connections[MAX_CONNECTIONS];	
+};
+
+const char* roomPool[TOTAL_ROOMS] = { "Dungeon", "Cellar", "Library", "Hallway", "Kitchen", "Attic", "Observatory", "Bedroom", "Labratory", "Test Chambers" };
+const char* roomTypes[ROOM_TYPE_COUNT] = { "START_ROOM", "MID_ROOM", "END_ROOM" };
+int roomNameAssigned[TOTAL_ROOMS] = { 0 };
+int roomTypeAssigned[USABLE_ROOMS] = { 0 };
+struct Room A;
+struct Room B;
+struct Room C;
+struct Room D;
+struct Room E;
+struct Room F;
+struct Room G;
+struct Room* Rooms[USABLE_ROOMS] = { &A, &B, &C, &D, &E, &F, &G };
+char directoryName[50] = "bryerl.rooms.";
+
+//Randomly assigns room names to rooms by iterating through the array of room pointers and pulling names from the pool of potential names
+void randomizeRoomNames()
+{
+	int roomSelection = rand() % TOTAL_ROOMS;
+	int i;
+	for (i = 0; i < USABLE_ROOMS; i++)
+	{
+		while (roomNameAssigned[roomSelection] == 1)
+		{
+			roomSelection = rand() % TOTAL_ROOMS;
+		}
+
+		strcpy(Rooms[i]->name, roomPool[roomSelection]);
+		roomNameAssigned[roomSelection] = 1;
+	}
+}
+
+//Randomly assigns room types to each room
+void randomizeRoomTypes()
+{
+	int roomSelection = rand() % USABLE_ROOMS;
+	int i;
+	
+	for (i = 0; i < USABLE_ROOMS; i++)
+	{
+		//continues to randomly select a room until it picks one that doesn't already have a room type
+		while (roomTypeAssigned[roomSelection] == 1)
+		{
+			roomSelection = rand() % USABLE_ROOMS;
+		}
+		
+		//the first assignment will always be the starting room
+		if (i == 0)
+		{
+			strcpy(Rooms[roomSelection]->type, "START_ROOM");
+			roomTypeAssigned[roomSelection] = 1;
+		}
+		//all but the first and last assignments are mid rooms
+		else if (i > 0 && i < USABLE_ROOMS - 1)
+		{
+			strcpy(Rooms[roomSelection]->type, "MID_ROOM");
+			roomTypeAssigned[roomSelection] = 1;
+		}
+		//the final assignment is the end room
+		else
+		{
+			strcpy(Rooms[roomSelection]->type, "END_ROOM");
+			roomTypeAssigned[roomSelection] = 1;
+		}
+	}
+}
+
+//This function simply creates a directory of ther format "bryerl.rooms.processid"
+void createDirectory()
+{
+    char pidString[10];
+    pid_t pid = getpid();
+    strcpy(directoryName, "./bryerl.rooms.");
+    sprintf(pidString, "%d", pid);
+    strcat(directoryName, pidString);
+    int result = mkdir(directoryName, 0700);
+}
+
+
+//This function initializes each room struct (much like a C++ constructor)
+void initializeRooms()
+{
+	int i,j;
+	
+	for (i = 0; i < USABLE_ROOMS; i++)
+	{
+		Rooms[i]->connectionCount = 0;
+
+		for (j = 0; j < MAX_CONNECTIONS; j++)
+		{
+			Rooms[i]->connections[j] = NULL;
+		}
+	}	
+}
+
+
+// Returns true if all rooms have 3 to 6 outbound connections, false otherwise
+bool IsGraphFull()
+{
+	bool correctConnections = true;
+	int i;
+	
+	for (i = 0; i < USABLE_ROOMS; i++)
+	{
+		if (Rooms[i]->connectionCount < 3 || Rooms[i]->connectionCount > 6)
+		{
+			correctConnections = false;
+		}
+	}
+	return correctConnections;
+}
+
+// Returns true if a connection can be added from Room x, false otherwise
+bool CanAddConnectionFrom(struct Room* x)
+{
+	if (x->connectionCount < MAX_CONNECTIONS)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+//Connects Rooms x and y together, does not check if this connection is valid
+void ConnectRoom(struct Room* x, struct Room* y)
+{
+	bool firstFound = false;
+	int i;
+	
+	for (i = 0; i < MAX_CONNECTIONS; i++)
+	{
+		if (firstFound == false && x->connections[i] == NULL)
+		{
+			x->connections[i] = y;
+			x->connectionCount++;
+			firstFound = true;
+		}
+	}
+}
+
+//Randomly selects a room and does no validation on anything
+struct Room* GetRandomRoom()
+{
+	int roomSelection = rand() % 7;
+	struct Room* A = Rooms[roomSelection];	
+	return A;
+}
+
+//Returns true if Rooms x and y are the same Room, false otherwise
+bool IsSameRoom(struct Room* x, struct Room* y)
+{
+	if (strcmp(x->name, y->name) == 0)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+//This checks if a connection already exists between two specific rooms
+bool ConnectionAlreadyExists(struct Room* x, struct Room* y)
+{
+	int i;
+	bool connectionExists = false;
+	
+	for (i = 0; i < x->connectionCount; i++)
+	{
+		if (x->connections[i] != NULL)
+		{
+			if (strcmp(x->connections[i]->name, y->name) == 0)
+			{
+				connectionExists = true;
+			}
+		}
+	}
+	return connectionExists;
+}
+
+//This randomly adds one connection between two rooms that are eligible to be connected
+void AddRandomConnection()
+{
+	struct Room* A;  //Maybe a struct, maybe global arrays of ints
+	struct Room* B;	
+
+	//This simply gets random rooms until it gets one that has room for more connections
+	while (1)
+	{
+		A = GetRandomRoom();
+
+		if (CanAddConnectionFrom(A) == true)
+			break;
+	}
+
+	//this gets random rooms until it finds a room that is not the same as A, can add additional connections, and is not already connected to A
+	do
+	{
+		B = GetRandomRoom();
+	} while (CanAddConnectionFrom(B) == false || IsSameRoom(A, B) == true || ConnectionAlreadyExists(A, B) == true);
+
+	ConnectRoom(A, B);
+	ConnectRoom(B, A);
+}
+
+//This function writes all of the various room files to the directory of the current process
+void WriteFiles()
+{
+    int i;
+    int j = 0;
+    char filePath[50];
+    char textOutput[100];
+    FILE* writeFile;
+    for (i = 0; i < USABLE_ROOMS; i++)
+    {
+        strcpy(filePath, directoryName);
+        strcat(filePath, "/");
+        strcat(filePath, Rooms[i]->name);
+        writeFile = fopen(filePath, "w");
+       
+        fprintf(writeFile, "ROOM NAME: %s\n", Rooms[i]->name);
+        while (Rooms[i]->connections[j] != NULL)
+        {
+            fprintf(writeFile, "CONNECTION %d: %s\n", j+1, Rooms[i]->connections[j]->name);
+            j++;
+        }
+        j = 0;
+        fprintf(writeFile, "ROOM TYPE: %s\n", Rooms[i]->type);
+    }
+    fclose(writeFile);
+}
+
+
+void main()
+{
+	srand((unsigned int)time(NULL));
+	initializeRooms();	
+	randomizeRoomNames();
+	randomizeRoomTypes();
+    createDirectory();
+
+	// Create all connections in graph
+	while (IsGraphFull() == false)
+	{
+	AddRandomConnection();
+	}
+    WriteFiles();	
+}
